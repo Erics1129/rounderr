@@ -44,7 +44,7 @@ header h1 small{display:block;font-size:12px;font-weight:400;opacity:.7}
 @keyframes lamp{0%{transform:scale(.4);background:#fff}60%{transform:scale(1.5)}100%{transform:scale(1)}}
 .chain b{display:block;font-weight:600}
 .chain span{display:block;opacity:.75;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hbtns{display:flex;gap:8px;align-items:center}
+.hbtns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .chip{display:inline-flex;gap:7px;align-items:center;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.1);font-size:12.5px;white-space:nowrap;color:#fff;border:0;text-decoration:none}
 a.chip:hover,button.chip:hover{background:rgba(255,255,255,.2)}
 .led{width:8px;height:8px;border-radius:50%;background:#7783A1;flex:none}
