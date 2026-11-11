@@ -311,5 +311,7 @@ footer{max-width:1520px;margin:0 auto;padding:14px 28px 28px;border-top:1px soli
   .lrow{grid-template-columns:1fr;gap:2px}
   .brow{grid-template-columns:1fr 1fr 40px}
   header nav{margin-left:0}
+  .vline{font-size:18px}
+  .eq math{font-size:21px}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
