@@ -437,6 +437,76 @@ def clean(o):
     return o
 
 
+GREEK = {'alpha': 'α', 'beta': 'β', 'gamma': 'γ', 'delta': 'δ', 'eps': 'ε', 'epsilon': 'ε', 'theta': 'θ', 'phi': 'φ',
+         'psi': 'ψ', 'mu': 'μ', 'nu': 'ν', 'lam': 'λ', 'omega': 'ω', 'sigma': 'σ', 'rho': 'ρ', 'tau': 'τ', 'pi': 'π'}
+
+
+def mathml(src, name='y'):
+    """Python expression source -> presentation MathML, so the window can typeset the formula the way
+    it would be written on paper: a real fraction bar, a real root sign, raised exponents."""
+    def ident(s):
+        m = re.fullmatch(r'([A-Za-z]+?)_?(\d+)', s)
+        if m:
+            return '<msub>%s<mn>%s</mn></msub>' % (ident(m.group(1)), m.group(2))
+        return '<mi>%s</mi>' % GREEK.get(s, s)
+
+    def paren(x):
+        return '<mrow><mo>(</mo>%s<mo>)</mo></mrow>' % x
+
+    def go(n, need=0):
+        """need: 0 anything, 1 a term of a sum, 2 a factor, 3 an atom"""
+        if isinstance(n, ast.Constant):
+            v = n.value
+            t = repr(v) if not isinstance(v, float) else rr.fnum(v) if abs(v) < 1e-4 or abs(v) >= 1e7 else repr(v)
+            m = re.fullmatch(r'(-?[\d.]+)e([-+]?\d+)', t)
+            if m:
+                return go_sci(m.group(1), int(m.group(2)), need)
+            return '<mn>%s</mn>' % t
+        if isinstance(n, ast.Name):
+            return ident(n.id)
+        if isinstance(n, ast.UnaryOp) and isinstance(n.op, (ast.USub, ast.UAdd)):
+            x = '<mrow><mo>%s</mo>%s</mrow>' % ('−' if isinstance(n.op, ast.USub) else '+', go(n.operand, 2))
+            return paren(x) if need >= 2 else x
+        if isinstance(n, ast.BinOp):
+            if isinstance(n.op, (ast.Add, ast.Sub)):
+                x = '<mrow>%s<mo>%s</mo>%s</mrow>' % (go(n.left, 0), '+' if isinstance(n.op, ast.Add) else '−', go(n.right, 1))
+                return paren(x) if need >= 1 else x
+            if isinstance(n.op, ast.Mult):
+                right = n.right
+                dot = isinstance(right, ast.Constant) or isinstance(n.left, ast.Constant) and isinstance(right, ast.Constant) \
+                    or (isinstance(n.left, ast.Name) and isinstance(right, ast.Name) and n.left.id == right.id)
+                x = '<mrow>%s<mo>%s</mo>%s</mrow>' % (go(n.left, 2), '⋅' if dot else '&#x2062;', go(right, 2))
+                return paren(x) if need >= 3 else x
+            if isinstance(n.op, ast.Div):
+                return '<mfrac>%s%s</mfrac>' % (go(n.left, 0), go(n.right, 0))
+            if isinstance(n.op, ast.Pow):
+                return '<msup>%s%s</msup>' % (go(n.left, 3), go(n.right, 0))
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.args:
+            f, a = n.func.id, n.args
+            if f == 'sqrt':
+                return '<msqrt>%s</msqrt>' % go(a[0], 0)
+            if f in ('abs', 'fabs'):
+                return '<mrow><mo>|</mo>%s<mo>|</mo></mrow>' % go(a[0], 0)
+            if f == 'exp':
+                return '<msup><mi>e</mi>%s</msup>' % go(a[0], 0)
+            return '<mrow><mi>%s</mi><mo>&#x2061;</mo>%s</mrow>' % ({'log': 'ln', 'asin': 'arcsin', 'acos': 'arccos', 'atan': 'arctan'}.get(f, f),
+                                                                 paren('<mo>,</mo>'.join(go(x, 0) for x in a)))
+        raise ValueError('no math for %s' % type(n).__name__)
+
+    def go_sci(mant, e, need):
+        x = '<msup><mn>10</mn><mn>%d</mn></msup>' % e
+        if mant not in ('1', '1.0'):
+            x = '<mrow><mn>%s</mn><mo>×</mo>%s</mrow>' % (mant, x)
+            return paren(x) if need >= 3 else x
+        return x
+
+    try:
+        body = go(ast.parse(src, mode='eval').body)
+    except Exception:
+        return None
+    return '<math><mrow>%s<mo>=</mo>%s</mrow></math>' % (ident(name or 'y'), body)
+
+
 def result_json(R, label, why=''):
     tape, ay = R.tape, abs(R.y)
     comp = [ln for ln in tape.lines if ln.op != 'input']
@@ -450,6 +520,7 @@ def result_json(R, label, why=''):
                           partials=[float(x) for x in ln.partials], slip_u=(ln.slip / (R.u * abs(ln.value))) if ln.value else 0.0))
     rel = R.actual / ay if ay else None
     return dict(label=label, why=why, src=R.src, script=[[n, py] for n, py in R.reading['script']],
+                math=[mathml(py, n) for n, py in R.reading['script']],
                 multi=len(R.reading['script']) > 1, bits=R.bits, u=R.u,
                 inputs={n: float(R.values[n]) for n in tape.inputs}, y=repr(R.y), y_true=rr.mpstr(R.y_true),
                 actual=R.actual, rel=rel, rel_u=(rel / R.u) if rel is not None else None, predicted=R.predicted,

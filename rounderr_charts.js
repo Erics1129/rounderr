@@ -88,7 +88,7 @@ function graphSVG(r, animate) {
     let head = isIn ? l.name : isC ? l.name : l.text;
     if (head.length > 19) head = head.slice(0, 18) + '…';
     const share = l.share || 0;
-    const fill = share > 0 ? `color-mix(in srgb, var(--blame) ${Math.round(14 + 76 * share)}%, var(--node))` : 'var(--node)';
+    const fill = share > 0 ? `color-mix(in srgb, var(--hl) ${Math.round(25 + 75 * share)}%, var(--node))` : 'var(--node)';
     const cls = ['nd', isIn ? 'in' : isC ? 'const' : (l.d === 0 ? 'exact' : 'round'), i === out ? 'out' : '', top && l === top && share > 0.2 ? 'hot' : '', share > 0.3 ? 'amber' : ''].join(' ');
     const lost = l.digits_lost && l.digits_lost >= 1;
     const tip = [l.text, 'value  ' + plain(l.value, 10), 'λ  ' + plain(l.lam, 5) + (isIn ? '   (gradient of y)' : ''),
@@ -97,11 +97,11 @@ function graphSVG(r, animate) {
       lost ? 'cancellation throws away ' + l.digits_lost.toFixed(1) + ' digits' : ''].filter(Boolean).join('\n');
     nodes += `<g transform="translate(${X(i)} ${Y(i)})"><g class="${cls}" style="--d:${depth[i]};--r:${maxD - depth[i]}" data-tip="${esc(tip)}">
       ${share > 0.2 && top === l ? `<rect class="ring" x="-4" y="-4" width="${NW + 8}" height="${NH + 8}" rx="11"/>` : ''}
-      <rect class="box" width="${NW}" height="${NH}" rx="8" style="fill:${fill}"/>
+      <rect class="box" width="${NW}" height="${NH}" style="fill:${fill}"/>
       <text class="t1" x="10" y="18">${esc(head)}</text>
       <text class="t2" x="10" y="35">${esc(plain(l.value, 7))}</text>
       ${share >= 0.005 ? `<text class="sh" x="${NW - 8}" y="35" text-anchor="end">${pct(share)}</text>` : ''}
-      ${lost ? `<g class="lost"><rect x="${NW - 70}" y="-10" width="76" height="18" rx="9"/><text x="${NW - 32}" y="3" text-anchor="middle">−${l.digits_lost.toFixed(1)} digits</text></g>` : ''}
+      ${lost ? `<g class="lost"><rect x="${NW - 70}" y="-10" width="76" height="18"/><text x="${NW - 32}" y="3" text-anchor="middle">−${l.digits_lost.toFixed(1)} digits</text></g>` : ''}
       <text class="lam" x="${NW / 2}" y="${NH + 14}" text-anchor="middle">λ ${esc(plain(l.lam, 3))}</text>
     </g></g>`;
   });
@@ -125,7 +125,7 @@ function ladderHTML(results, sel) {
     const a = Math.min(P(o.kap), P(o.A)), b = Math.max(P(o.kap), P(o.A)), w = o.r.word[0];
     const tipA = `ceiling A = ${plain(o.A)} u\nwhat this algorithm allows in the worst case`;
     return `<div class="lrow${i === sel ? ' sel' : ''}" data-i="${i}" role="button" tabindex="0" aria-label="${esc(o.r.label)}, ${o.r.word.toLowerCase()}">
-      <div class="lname"><i class="sw" style="--c:${SERIES[i % 4]}"></i><span>${esc(o.r.label)}</span><span class="pill ${w}">${w === 'S' ? '✓ stable' : w === 'U' ? '✕ unstable' : '? undefined'}</span></div>
+      <div class="lname"><i class="sw" style="--c:${SERIES[i % 4]}"></i><span>${esc(o.r.label)}</span><span class="pill ${w}">${w === 'S' ? 'stable' : w === 'U' ? 'unstable' : 'undefined'}</span></div>
       <div class="ltrack">
         <div class="lzone" data-k="z${i}" style="width:${P(o.lim)}%"></div>
         <div class="lgap ${w}" data-k="g${i}" style="left:${a}%;width:${b - a}%"></div>
@@ -137,7 +137,7 @@ function ladderHTML(results, sel) {
   }).join('');
   const ticks = logTicks(lo, hi, 9).map(e => `<span style="left:${100 * (e - lo) / (hi - lo)}%">${e === 0 ? '1 u' : p10(e)}</span>`).join('');
   return `<div class="ladder">${body}<div class="lrow axis"><div class="lname">relative error, in units of u</div><div class="ltrack ticks">${ticks}</div></div></div>` +
-    legend([['var(--ink)', 'measured error', 'dot'], ['var(--ink-soft)', 'κ, what the problem forces', 'dia'], ['var(--blame)', 'A, what the algorithm allows', 'bar'], ['var(--ink-soft)', 'limit', 'dash'], ['var(--ok-soft)', 'stable zone', 'zone']]);
+    legend([['var(--ink)', 'measured error', 'dot'], ['var(--ink)', 'κ, forced by the problem', 'dia'], ['var(--ink)', 'A, allowed by the algorithm', 'bar'], ['var(--ink-2)', 'limit', 'dash'], ['var(--ok-wash)', 'stable zone', 'zone']]);
 }
 
 /* ------------------------------------------------------------------ shared axes for the SVG charts */
@@ -166,7 +166,7 @@ function path(pts) {                              // pts: [x, y] or null, a null
 /* ------------------------------------------------------------------ trials, kappa against A */
 function scatterSVG(trials, sel) {
   const T = (trials || []).map((t, i) => Object.assign({i}, t)).filter(t => !t.error && t.points && t.points.length);
-  if (!T.length) return none(trials && trials[0] && trials[0].error ? esc(trials[0].error) : 'Random trials appear here by themselves.');
+  if (!T.length) return none(trials && trials[0] && trials[0].error ? esc(trials[0].error) : 'Waiting for the trials.');
   const W = 560, H = 300, m = {l: 50, r: 14, t: 24, b: 36};
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   T.forEach(t => t.points.forEach(([k, a]) => { if (k > 0 && a > 0) { x0 = Math.min(x0, lg(k)); x1 = Math.max(x1, lg(k)); y0 = Math.min(y0, lg(a)); y1 = Math.max(y1, lg(a)); } }));
@@ -198,7 +198,7 @@ function histSVG(t, color) {
   B.forEach(([e, c]) => {
     if (!c) return;
     const h = Math.max(1.5, H - m.b - f.Y(c)), un = e + 0.125 >= la;
-    s += `<rect class="hbar${un ? ' un' : ''}" x="${(f.X(e) + 1).toFixed(1)}" y="${(H - m.b - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" style="--c:${color}" data-tip="A/κ from ${plain(Math.pow(10, e), 2)} to ${plain(Math.pow(10, e + 0.25), 2)}&#10;${c} of ${t.valid} inputs${un ? '&#10;past the limit' : ''}"/>`;
+    s += `<rect class="hbar${un ? ' un' : ''}" x="${(f.X(e) + 1).toFixed(1)}" y="${(H - m.b - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" style="--c:${color}" data-tip="A/κ from ${plain(Math.pow(10, e), 2)} to ${plain(Math.pow(10, e + 0.25), 2)}&#10;${c} of ${t.valid} inputs${un ? '&#10;past the limit' : ''}"/>`;
   });
   s += `<line class="limline" x1="${f.X(la)}" x2="${f.X(la)}" y1="${m.t}" y2="${H - m.b}"/><text class="note" x="${f.X(la) + 4}" y="${m.t + 9}">limit ${plain(t.allow)}</text>`;
   return svg('ch-hist', W, H, s, 'Histogram of A over kappa across the random trials');
@@ -207,7 +207,7 @@ function histSVG(t, color) {
 /* ------------------------------------------------------------------ every precision */
 function precisionSVG(prec, sel) {
   const P = (prec && prec.precision || []).map((c, i) => Object.assign({i}, c)).filter(c => c.rows.length);
-  if (!P.length) return none('The precision sweep appears here by itself.');
+  if (!P.length) return none('Waiting for the sweep.');
   const W = 560, H = 300, m = {l: 50, r: 14, t: 24, b: 36};
   let y0 = 0, y1 = -Infinity;
   P.forEach(c => c.rows.forEach(([b, act, cei]) => { [act, cei].forEach(v => { if (v > 0) { y0 = Math.min(y0, lg(v)); y1 = Math.max(y1, lg(v)); } }); }));
@@ -227,7 +227,7 @@ function precisionSVG(prec, sel) {
   CH['ch-prec'] = {W, at: px => { const b = bitsOf(px); return {x: f.X(b), key: b}; },
     tip: b => `<b>${b} bits</b>, u = ${fmt(Math.pow(2, -b), 2)}` + P.map(c => { const row = c.rows.find(q => q[0] === b); return row ? `<br><i class="sw" style="--c:${SERIES[c.i % 4]}"></i>${esc(c.label)}: measured ${fmt(row[1], 2)}, ceiling ${fmt(row[2], 2)}` : ''; }).join('') + '<br><span class="dim">click to run at this precision</span>',
     click: b => window.setBits && window.setBits(b)};
-  return legend(P.map(c => [SERIES[c.i % 4], esc(c.label)]).concat([['var(--ink-soft)', 'line: ceiling', 'bar'], ['var(--ink-soft)', 'dots: measured', 'dot'], ['var(--muted)', 'u, one rounding', 'dash']])) +
+  return legend(P.map(c => [SERIES[c.i % 4], esc(c.label)]).concat([['var(--ink-2)', 'line: ceiling', 'bar'], ['var(--ink-2)', 'dots: measured', 'dot'], ['var(--muted)', 'u, one rounding', 'dash']])) +
     svg('ch-prec', W, H, s + hit('ch-prec', W, H, m), 'Relative error against precision from 8 to 53 bits');
 }
 
@@ -255,13 +255,13 @@ function curveSVG(land, sel) {
   CH['ch-land'] = {W, at: px => { const i = idx(px); return {x: f.X(e[i]), key: i}; },
     tip: i => `<b>${esc(land.x)} = ${fmt(land.xs[i], 4)}</b><br>κ ${fmt(k0[i], 3)}` + C.map((c, j) => `<br><i class="sw" style="--c:${SERIES[j % 4]}"></i>${esc(c.label)}: A ${fmt(c.A[i], 3)} u`).join('') + '<br><span class="dim">click to move there</span>',
     click: i => window.setVals && window.setVals({[land.x]: land.xs[i]})};
-  return legend(C.map((c, i) => [SERIES[i % 4], esc(c.label) + ', ceiling A']).concat([['var(--ink-soft)', 'κ, the problem', 'dash'], ['var(--bad)', 'limit', 'dash'], ['var(--ink-soft)', 'dots: measured', 'dot']])) +
+  return legend(C.map((c, i) => [SERIES[i % 4], esc(c.label) + ', ceiling A']).concat([['var(--ink-2)', 'κ, the problem', 'dash'], ['var(--bad)', 'limit', 'dash'], ['var(--ink-2)', 'dots: measured', 'dot']])) +
     svg('ch-land', W, H, s + hit('ch-land', W, H, m), 'Error ceiling and condition number along one input');
 }
 
 /* ------------------------------------------------------------------ two inputs: a map */
 function mapColor(z, la, dark) {
-  const N = dark ? [56, 58, 66] : [236, 237, 240], B = dark ? [57, 135, 229] : [28, 92, 171], R = dark ? [240, 96, 127] : [176, 28, 62];
+  const N = dark ? [52, 54, 57] : [238, 239, 240], B = dark ? [92, 156, 245] : [33, 102, 209], R = dark ? [255, 125, 115] : [179, 38, 30];
   let t, to;
   if (z <= la) { t = 0.22 + 0.78 * clamp((la - z) / Math.max(la, 0.5), 0, 1); to = B; } else { t = 0.3 + 0.7 * Math.pow(clamp((z - la) / 7, 0, 1), 0.6); to = R; }
   return [0, 1, 2].map(i => Math.round(N[i] + (to[i] - N[i]) * t));
@@ -269,7 +269,7 @@ function mapColor(z, la, dark) {
 function drawMap(canvas, land, c) {
   const m = land.m, dark = document.documentElement.dataset.theme === 'dark', la = lg(c.allow);
   const off = document.createElement('canvas'); off.width = m; off.height = m;
-  const ctx = off.getContext('2d'), img = ctx.createImageData(m, m), void_ = dark ? [30, 36, 54] : [250, 251, 253];
+  const ctx = off.getContext('2d'), img = ctx.createImageData(m, m), void_ = dark ? [15, 16, 17] : [255, 255, 255];
   for (let j = 0; j < m; j++) for (let i = 0; i < m; i++) {
     const z = c.z[j * m + i], rgb = z === null ? void_ : mapColor(z, la, dark), o = 4 * ((m - 1 - j) * m + i);
     img.data[o] = rgb[0]; img.data[o + 1] = rgb[1]; img.data[o + 2] = rgb[2]; img.data[o + 3] = 255;
@@ -278,7 +278,7 @@ function drawMap(canvas, land, c) {
   const g = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
   g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
   g.drawImage(off, 0, 0, w, h);
-  g.strokeStyle = dark ? 'rgba(255,255,255,.9)' : 'rgba(20,33,61,.9)'; g.lineWidth = 2;
+  g.strokeStyle = dark ? '#fff' : '#111417'; g.lineWidth = 2;
   g.beginPath(); g.arc(w / 2, h / 2, 7, 0, 2 * Math.PI); g.stroke();
   g.beginPath(); g.moveTo(w / 2 - 13, h / 2); g.lineTo(w / 2 - 3, h / 2); g.moveTo(w / 2 + 3, h / 2); g.lineTo(w / 2 + 13, h / 2);
   g.moveTo(w / 2, h / 2 - 13); g.lineTo(w / 2, h / 2 - 3); g.moveTo(w / 2, h / 2 + 3); g.lineTo(w / 2, h / 2 + 13); g.stroke();
@@ -288,8 +288,8 @@ function mapHTML(land) {
   const tx = [0, (m - 1) / 2, m - 1].map(i => plain(land.xs[Math.round(i)], 2)), ty = [m - 1, (m - 1) / 2, 0].map(i => plain(land.ys[Math.round(i)], 2));
   const dark = document.documentElement.dataset.theme === 'dark';
   const stops = [-1, -0.5, -0.01, 0.01, 2, 4, 7].map(d => { const [r, g, b] = mapColor(1 + d, 1, dark); return `rgb(${r},${g},${b})`; });
-  return `<div class="maps">${land.cands.map((c, i) => `<figure class="map"><figcaption><i class="sw" style="--c:${SERIES[i % 4]}"></i>${esc(c.label)}<span class="pill ${c.unstable_share > 0 ? 'U' : 'S'}">${c.unstable_share === null ? 'n/a' : pct(c.unstable_share) + ' of the map unstable'}</span></figcaption>
+  return `<div class="maps">${land.cands.map((c, i) => `<figure class="map"><figcaption><i class="sw" style="--c:${SERIES[i % 4]}"></i>${esc(c.label)}<span class="dim">${c.unstable_share === null ? 'n/a' : pct(c.unstable_share) + ' of this region unstable'}</span></figcaption>
     <div class="mapbox"><div class="yax"><span>${ty[0]}</span><span>${ty[1]}</span><span>${ty[2]}</span></div><canvas width="366" height="366" data-map="${i}" aria-label="Map of A over kappa across ${esc(land.x)} and ${esc(land.y)}"></canvas>
     <div class="yname">${esc(land.y)}</div><div class="xax"><span>${tx[0]}</span><span>${tx[1]}</span><span>${tx[2]}</span></div><div class="xname">${esc(land.x)}</div></div></figure>`).join('')}</div>
-    <div class="mapkey"><span>A/κ = 1</span><i style="background:linear-gradient(90deg,${stops.slice(0, 3).join(',')})"></i><span>limit</span><i style="background:linear-gradient(90deg,${stops.slice(3).join(',')})"></i><span>10⁷ past it</span><span class="dim">◎ your numbers. Click anywhere on a map to move there.</span></div>`;
+    <div class="mapkey"><span>A/κ = 1</span><i style="background:linear-gradient(90deg,${stops.slice(0, 3).join(',')})"></i><span>limit</span><i style="background:linear-gradient(90deg,${stops.slice(3).join(',')})"></i><span>10⁷ past it</span><span class="dim">The crosshair is your numbers. Click a map to move there.</span></div>`;
 }

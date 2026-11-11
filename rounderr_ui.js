@@ -47,7 +47,7 @@ async function boot() {
   }
   if (backend === 'http') {
     S.ready = true;
-    engineChip('on', 'local engine, Python ' + S.status.python);
+    engineChip('on', 'native Python ' + S.status.python + ' on this computer');
     S.examples = await api('examples');
     chips(); statusLine();
     const ex = S.examples[0];
@@ -57,7 +57,7 @@ async function boot() {
   }
   backend = 'worker';
   $('bootbar').hidden = false;
-  engineChip('busy', 'starting Python in your browser');
+  engineChip('busy', 'starting Python in this page');
   for (const o of $('mode').options) if (o.value === 'anthropic' || o.value === 'openai') { o.disabled = true; o.textContent += ' (run the app locally)'; }
   worker = new Worker('engine-worker.js');
   worker.onmessage = onWorker;
@@ -68,7 +68,7 @@ async function boot() {
       S.status = snap.status; S.examples = snap.examples; chips();
       $('text').value = snap.text; S.vals = Object.assign({}, snap.values);
       S.trials = snap.trials.trials; S.prec = snap.precision; S.land = snap.landscape;
-      live('busy', 'showing a saved run while Python starts');
+      live('busy', 'saved run shown while Python starts');
       show(snap.analyze, true);
     }
   } catch (e) { /* no snapshot, the live run paints when the engine is up */ }
@@ -81,7 +81,7 @@ async function onWorker(e) {
   if (m.type === 'numpy') { S.numpy = true; return; }
   if (m.type === 'ready') {
     S.ready = true; $('bootbar').hidden = true;
-    engineChip('on', 'Python in your browser, up in ' + (m.ms / 1000).toFixed(1) + ' s');
+    engineChip('on', 'Python running in this page');
     S.status = await api('status');
     if (!S.examples.length) { S.examples = await api('examples'); chips(); }
     statusLine();
@@ -116,7 +116,8 @@ function readback(d, soft) {
   if (!d) { b.hidden = true; return; }
   b.hidden = false; b.classList.toggle('soft', !!soft);
   if (soft) { b.innerHTML = `Not a formula I can run yet. <span class="dim">${esc(d)}</span>`; return; }
-  b.innerHTML = `I read it as<span class="num">${$('mode').value === 'rule' ? 'y = ' + pretty(d.reading) : esc(d.reading)}</span>` + (d.notes && d.notes.length ? `<ul>${d.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : '');
+  const typeset = d.results && d.results[0].math && d.results[0].math.every(Boolean) ? d.results[0].math.join('<br>') : null;
+  b.innerHTML = `Read as<span class="rd">${typeset || ($('mode').value === 'rule' ? '<span class="num">y = ' + pretty(d.reading) + '</span>' : esc(d.reading))}</span>` + (d.notes && d.notes.length ? `<ul>${d.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : '');
 }
 function setBits(b, wait) {
   S.bits = b; $('bits').value = b; $('bitslabel').textContent = b + ' bits, u = 2' + sup(-b);
@@ -180,7 +181,7 @@ function show(d, saved) {
   S.expStale = !saved;
   $('pane').classList.remove('old');
   readback(d); fields(d.vars, d.values);
-  if (!saved) live('busy', 'analysis ' + ms(S.times.analyze) + ', experiments running');
+  if (!saved) live('busy', 'analysis ' + ms(S.times.analyze) + ' · experiments running');
   render(true);
 }
 const landReq = rid => ({run_id: rid, x: S.landX, y: S.landY === undefined ? null : (S.landY || ''), kind: S.landY === '' ? 'curve' : 'auto', decades: S.landDec});
@@ -199,7 +200,7 @@ async function experiments(seq) {
   paint('scatter', 'prec', 'land');
   if (S.tab === 'Trials') render();
   const n = S.trials && S.trials[0] && !S.trials[0].error ? S.trials[0].n : 0;
-  live('on', `live. Analysis ${ms(S.times.analyze)}, ${n} trials and both sweeps ${ms(S.times.exp)}`);
+  live('on', `analysis ${ms(S.times.analyze)} · ${n} trials + sweeps ${ms(S.times.exp)}`);
 }
 async function rerunPart(which) {                     // a control on one experiment card changed
   if (!S.payload || !S.ready) return;
@@ -208,7 +209,7 @@ async function rerunPart(which) {                     // a control on one experi
   if (which === 'trials') { const d = await api('trials', {run_id: rid, n: S.tn, spread: S.ts}); if (seq === S.seq && !d.error) S.trials = d.trials; }
   if (which === 'land') { const d = await api('landscape', landReq(rid)); if (seq === S.seq && !d.error) S.land = d; }
   if (seq !== S.seq) return;
-  live('on', 'live');
+  live('on', 'up to date');
   if (S.tab === 'Overview') paint(which === 'trials' ? 'scatter' : 'land'); else render();
 }
 
@@ -223,9 +224,7 @@ function chain(pulse) {
     ['Bean', r ? (r.bean.ok ? 'typed' + (r.bean.cached ? ', from table' : '') : (r.bean.stage === 'missing' ? 'not installed' : 'cannot type it')) : 'all inputs'],
     ['Data', p ? p.log_rows + ' rows logged' : 'log and trials']
   ];
-  const c = $('chain');
-  c.innerHTML = st.map(([a, b], i) => `<li style="--i:${i}" class="${p ? 'done' : ''}${p && i === 4 && r && !r.bean.ok && r.bean.stage !== 'missing' ? ' flag' : ''}"><b>${a}</b><span title="${esc(b)}">${esc(b)}</span></li>`).join('');
-  c.classList.toggle('run', !!pulse);
+  $('chain').innerHTML = st.map(([a, b], i) => `<li class="${p && i === 4 && r && !r.bean.ok && r.bean.stage !== 'missing' ? 'flag' : ''}"><b>${a.toLowerCase()}</b><span>${esc(b)}</span></li>`).join('');
 }
 
 /* ------------------------------------------------------------------ the right side */
@@ -235,7 +234,7 @@ function render(pulse) {
   $('tabs').innerHTML = p ? TABS.map(t => `<button role="tab" aria-selected="${t === S.tab}" data-t="${t}">${t}</button>`).join('') : '';
   if (!p) return;
   const c = $('cands'); c.hidden = p.results.length < 2 || S.tab === 'Overview';
-  c.innerHTML = p.results.map((r, i) => `<button class="cand" aria-pressed="${i === S.sel}" data-i="${i}"><i class="sw" style="--c:${SERIES[i % 4]}"></i>${esc(r.label)}<span class="pill ${r.word[0]}">${r.word.toLowerCase()}</span></button>`).join('');
+  c.innerHTML = p.results.map((r, i) => `<button class="cand" aria-pressed="${i === S.sel}" data-i="${i}"><i class="sw" style="--c:${SERIES[i % 4]}"></i>${esc(r.label)} <span class="pill ${r.word[0]}">${r.word.toLowerCase()}</span></button>`).join('');
   const pane = $('pane'), r = p.results[S.sel];
   if (S.tab === 'Overview') {
     if (!$('c-hero')) {
@@ -302,65 +301,67 @@ const opt = (v, t, cur) => `<option value="${esc(v)}"${String(v) === String(cur)
 /* ---------- overview cards ---------- */
 const CARDS = {
   hero(r, p) {
-    const w = r.word[0], name = {S: 'Stable', U: 'Unstable', N: 'Undefined'}[w], ico = {S: '✓', U: '✕', N: '?'}[w];
-    const why = r.verdict.replace(/^\w+\s+\(?/, '').replace(/\)$/, '');
+    const w = r.word[0], name = {S: 'Stable', U: 'Unstable', N: 'Undefined'}[w];
+    let why = r.verdict.replace(/^\w+\s+\(?/, '').replace(/\)$/, '');
+    why = why.charAt(0).toUpperCase() + why.slice(1);
     const total = r.bits * Math.log10(2), rel = r.rel === null ? null : Math.abs(r.rel);
     const good = rel === null ? 0 : rel === 0 ? total : clamp(-lg(rel), 0, total);
     const sure = r.A > 0 && Number.isFinite(r.A) ? clamp(-lg(r.A * r.u), 0, total) : (r.A === 0 ? total : 0);
     const ratio = r.A === null ? null : r.A / Math.max(1, r.kappa ?? 1);
-    return `<div class="hero"><div><div class="vd ${w}"><div class="ico" aria-hidden="true">${ico}</div><div><b>${name}</b><span>${words(why)}</span></div></div>
-      <p class="fx">${formula(r)}</p><p class="hint">y = ${esc(r.y)}${p.results.length > 1 ? `, showing <b>${esc(r.label)}</b>` : ''}</p></div>
-      <div class="tiles">
-        <div class="tile" data-tip="The error this run really made, computed value against a 60 digit reference."><small>Measured error</small>${tw('act', r.rel_u === null ? null : Math.abs(r.rel_u))} u<em>relative ${fmt(rel, 3)}</em></div>
-        <div class="tile" data-tip="A, the worst case this algorithm allows: u times the sum of |λ d t| over the tape."><small>Ceiling A</small>${tw('A', r.A)} u<em>at most ${fmt(r.ceiling, 3)}</em></div>
-        <div class="tile" data-tip="κ, the condition number. The error the problem itself forces on any algorithm."><small>Problem κ</small>${tw('kap', r.kappa)}<em>what the problem forces</em></div>
-        <div class="tile" data-tip="Stable when A stays within the limit times max(1, κ)."><small>A / κ</small>${tw('ratio', ratio)}<em>limit ${fmt(r.allow)}</em></div>
-        <div class="digits" data-tip="Dark: digits the ceiling guarantees. Light: digits this run actually got right. Red: digits lost."><span><b>${good.toFixed(1)}</b> of ${total.toFixed(1)} digits right, ${sure.toFixed(1)} guaranteed</span>
-          <div class="dbar"><i class="m" data-k="dm" style="width:${100 * good / total}%"></i><i class="g" data-k="dg" style="width:${100 * sure / total}%"></i></div></div>
-      </div></div>`;
+    const eq = r.math && r.math.every(Boolean) ? `<div class="lines">${r.math.join('')}</div>` : `<span class="fx">${formula(r)}</span>`;
+    return `<p class="vline ${w}"><b>${name}.</b> ${w === 'N' ? words(r.verdict) : words(why) + '.'}</p>
+      <div class="eq">${eq}<span class="val">= ${esc(r.y)}${p.results.length > 1 ? ` &nbsp; (${esc(r.label)})` : ''}</span></div>
+      <div class="facts">
+        <div data-tip="The error this run really made, computed value against a 60 digit reference."><small>measured error</small>${tw('act', r.rel_u === null ? null : Math.abs(r.rel_u))} u<em>relative ${fmt(rel, 3)}</em></div>
+        <div data-tip="A, the worst case this algorithm allows: u times the sum of |λ d t| over the tape."><small>ceiling A</small>${tw('A', r.A)} u<em>absolute ${fmt(r.ceiling, 3)}</em></div>
+        <div data-tip="κ, the condition number. The error the problem itself forces on any algorithm."><small>condition κ</small>${tw('kap', r.kappa)}<em>the problem's own</em></div>
+        <div data-tip="Stable when A stays within the limit times max(1, κ)."><small>A / κ</small>${tw('ratio', ratio)}<em>limit ${fmt(r.allow)}</em></div>
+        <div data-tip="Black: digits the ceiling guarantees. Grey: digits this run actually got right."><small>correct digits</small><b>${good.toFixed(1)}</b> of ${total.toFixed(1)}
+          <div class="dbar"><i class="m" data-k="dm" style="width:${100 * good / total}%"></i><i class="g" data-k="dg" style="width:${100 * sure / total}%"></i></div><em>${sure.toFixed(1)} guaranteed</em></div>
+      </div>`;
   },
   ladder(r, p) {
-    return head(p.results.length > 1 ? 'The same math, written ' + p.results.length + ' ways' : 'Problem against algorithm',
-      'One axis for everything. An algorithm is stable when its ceiling stays inside the green zone.' + (p.results.length > 1 ? ' Click a row to inspect it.' : '')) + ladderHTML(p.results, S.sel);
+    return head(p.results.length > 1 ? 'Candidates' : 'Problem against algorithm',
+      'Stable when the ceiling A stays left of the limit.' + (p.results.length > 1 ? ' Click a row to inspect that form.' : '')) + ladderHTML(p.results, S.sel);
   },
   blame(r) {
     const rows = r.lines.filter(l => l.op !== 'input').sort((a, b) => b.share - a.share).slice(0, 8);
     const any = rows.some(l => l.share > 0);
-    return head('Who is to blame', 'Share of the ceiling carried by each rounded step, |λ d t|.') + (any ? rows.map(l =>
+    return head('Blame', 'Share of the ceiling carried by each rounded step, |λ d t|.') + (any ? rows.map(l =>
       `<div class="brow" data-tip="${esc(l.text + '\n|λ d t| = ' + plain(l.weight) + '\nd = ' + l.d + (l.flags.length ? '  ' + l.flags.join(', ') : ''))}"><span class="c">${esc(l.text)}</span><div class="bar"><i data-k="b${l.idx}" style="width:${Math.max(l.share > 0 ? 1.5 : 0, 100 * l.share)}%"></i></div><span class="p">${l.share > 0 ? pct(l.share) : (l.d === 0 ? 'exact' : '0%')}</span></div>`).join('')
       : none('Every step of this run is exact, so there is nothing to blame.'));
   },
   why(r, p) {
-    let h = head('Why, and what to do', '');
+    let h = head('Diagnosis', '');
     h += `<ul class="why">${r.diagnosis.map(s => `<li>${words(s)}</li>`).join('')}</ul>`;
     if (r.warnings.length) h += r.warnings.map(w => `<div class="warn">${words(w)}</div>`).join('');
     const alt = p.results.filter((q, i) => i > 0 && q.why);
-    if (alt.length) h += `<h3>Rewrites the engine found</h3><ul class="why">${alt.map(q => `<li><b>${esc(q.label)}</b> <span class="num">${pretty(q.src)}</span><br><span class="dim">${esc(q.why)}</span></li>`).join('')}</ul>`;
+    if (alt.length) h += `<h3>Rewrites found</h3><ul class="why">${alt.map(q => `<li><b>${esc(q.label)}</b> <span class="num">${pretty(q.src)}</span><br><span class="dim">${esc(q.why)}</span></li>`).join('')}</ul>`;
     if (p.dropped && p.dropped.length) h += `<h3>Tapes the model proposed that failed the 60 digit check</h3><ul class="why">${p.dropped.map(d => `<li><b>${esc(d.name)}</b> ${esc(d.note)}</li>`).join('')}</ul>`;
     if (p.narrative) h += `<h3>The model explains</h3><div class="qa">${words(p.narrative)}</div><p class="hint">${p.loose.length ? 'Check these numbers, they are not in the report. ' + p.loose.map(x => fmt(x)).join(', ') : 'Every number in this explanation was found in the report.'}</p>`;
     if (p.mode !== 'rule') h += `<div class="ask"><input id="q" placeholder="Ask a follow up, for example what if b = 1e6"><button class="quiet" data-act="ask">Ask</button></div>` + S.qa.map(([q, a]) => `<div class="qa"><b>${esc(q)}</b>\n${esc(a)}</div>`).join('');
     return h;
   },
   prec() {
-    return head('Every precision', 'The same numbers rerun from 8 to 53 bits. A stable formula follows the u line.') + precisionSVG(S.prec, S.sel);
+    return head('Precision sweep', 'Same numbers, 8 to 53 bits. A stable form tracks u.') + precisionSVG(S.prec, S.sel);
   },
   scatter() {
     const ctl = `<select data-set="tn" aria-label="How many random inputs">${[[500, '500'], [2000, '2000'], [5000, '5000'], [20000, '20000']].map(([v, t]) => opt(v, t + ' inputs', S.tn)).join('')}</select>
       <select data-set="ts" aria-label="How far the inputs spread">${opt('pct10', 'within 10%', S.ts)}${opt('x10', 'up to 10 times', S.ts)}${opt('x1000', 'up to 1000 times', S.ts)}</select>`;
-    return head('Random trials', 'Random inputs around yours, each one a dot.', ctl) + scatterSVG(S.trials, S.sel);
+    return head('Random trials', 'Inputs drawn around yours.', ctl) + scatterSVG(S.trials, S.sel);
   },
   land() {
     const L = S.land;
-    if (!L || L.kind === 'none') return head('Input landscape', '') + none(L ? 'This formula has no inputs to vary.' : 'The input landscape appears here by itself.');
+    if (!L || L.kind === 'none') return head('Input landscape', '') + none(L ? 'This formula has no inputs to vary.' : 'Waiting for the sweep.');
     const ctl = `<select data-set="landX" aria-label="Input on the horizontal axis">${L.names.map(n => opt(n, n + ' across', L.x)).join('')}</select>` +
       (L.names.length > 1 ? `<select data-set="landY" aria-label="Input on the vertical axis">${opt('', 'curve, one input', L.y || '')}${L.names.filter(n => n !== L.x).map(n => opt(n, n + ' up', L.y || '')).join('')}</select>` : '') +
       `<select data-set="landDec" aria-label="Range">${[[1, '÷10 to ×10'], [2, '÷100 to ×100'], [4, '÷10⁴ to ×10⁴']].map(([v, t]) => opt(v, t, L.decades)).join('')}</select>`;
-    return head('Input landscape', L.kind === 'map' ? 'Where in the input plane the algorithm holds up, and where it falls apart.' : 'How the ceiling moves as one input changes.', ctl) +
+    return head('Input landscape', L.kind === 'map' ? 'A/κ over two inputs, the rest held fixed.' : 'Ceiling and κ along one input, the rest held fixed.', ctl) +
       (L.kind === 'map' ? mapHTML(L) : curveSVG(L, S.sel));
   }
 };
 function cGraph(r, p, animate) {
-  return head('The tape as a graph', 'Values flow right to y, then λ flows back. Amber is blame. Hover a step.', '<button class="quiet" data-act="replay">Replay</button>') + graphSVG(r, animate) ;
+  return head('Tape', 'Values run forward to y, λ runs back. Yellow marks blame.', '<button class="quiet" data-act="replay">Replay</button>') + graphSVG(r, animate) ;
 }
 CARDS.graph = cGraph;
 
@@ -414,7 +415,7 @@ function vBean(r) {
     h += `<h3>Generated Bean program</h3><pre>${esc(b.src)}</pre>`;
   }
   if (b.notes && b.notes.length) h += `<ul class="why">${b.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>`;
-  h += `<div class="row" style="margin-top:12px"><label for="disc">Inputs Bean must not change</label><input id="disc" class="num" style="padding:6px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--panel)" placeholder="x, z" value="${esc((S.discrete || []).join(', '))}"><button class="quiet" data-act="disc">Check again</button></div>`;
+  h += `<div class="row" style="margin-top:12px"><label for="disc">Inputs Bean must not change</label><input id="disc" class="num" style="padding:5px 8px;border:1px solid var(--rule);border-radius:2px;background:var(--bg)" placeholder="x, z" value="${esc((S.discrete || []).join(', '))}"><button class="quiet" data-act="disc">Check again</button></div>`;
   return h;
 }
 function vTrials(r, p) {
@@ -557,7 +558,7 @@ async function ask() {
   if (d.error) { say(d.error); live('', 'the model did not answer'); return; }
   S.qa.unshift([q, d.answer]);
   if (d.payload && !d.payload.error) { setBitsQuiet(d.payload.bits); S.vals = Object.assign({}, d.payload.values); show(d.payload); experiments(S.seq); } else paint('why');
-  live('on', 'live');
+  live('on', 'up to date');
 }
 function setBitsQuiet(b) { S.bits = b; $('bits').value = b; $('bitslabel').textContent = b + ' bits, u = 2' + sup(-b); $('seg').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(Number(x.dataset.b) === b))); }
 
@@ -644,9 +645,11 @@ $('theme').onclick = () => {
   const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = t;
   try { localStorage.setItem('rounderr-theme', t); } catch (e) { /* private mode */ }
+  $('theme').textContent = t === 'dark' ? 'light' : 'dark';
   paint('land');
 };
 
+$('theme').textContent = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
 setBitsQuiet(53);
 chain();
 boot();
