@@ -19,7 +19,7 @@ let pyodide = null, bridge = null;
 
 const ready = (async () => {
   boot('runtime');
-  const sources = Promise.all(FILES.map(f => fetch(f).then(r => {
+  const sources = Promise.all(FILES.map(f => fetch(f + self.location.search).then(r => {
     if (!r.ok) throw new Error('could not fetch ' + f);
     return r.text();
   })));

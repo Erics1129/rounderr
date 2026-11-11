@@ -22,6 +22,8 @@ const numStr = x => String(Number(Number(x).toPrecision(12)));
 const ms = x => x === undefined || x === null ? '' : (x < 1 ? '<1 ms' : x < 1000 ? Math.round(x) + ' ms' : (x / 1000).toFixed(1) + ' s');
 
 /* ------------------------------------------------------------------ the two engines */
+// the same tag index.html puts on this script, passed on so one deploy is never served half from cache
+const VERSION = (document.currentScript && new URL(document.currentScript.src).search) || '';
 let backend = null, worker = null, nextId = 0;
 const waiting = new Map();
 function api(route, body) {
@@ -59,11 +61,11 @@ async function boot() {
   $('bootbar').hidden = false;
   engineChip('busy', 'starting Python in this page');
   for (const o of $('mode').options) if (o.value === 'anthropic' || o.value === 'openai') { o.disabled = true; o.textContent += ' (run the app locally)'; }
-  worker = new Worker('engine-worker.js');
+  worker = new Worker('engine-worker.js' + VERSION);
   worker.onmessage = onWorker;
   worker.onerror = e => { engineChip('bad', 'engine failed to start'); say('The Python engine could not start in this browser. ' + (e.message || '')); $('bootbar').hidden = true; };
   try {                                             // a saved run of the default example paints at once
-    const snap = await fetch('snapshot.json').then(r => r.json());
+    const snap = await fetch('snapshot.json' + VERSION).then(r => r.json());
     if (!S.ready && !S.payload) {
       S.status = snap.status; S.examples = snap.examples; chips();
       $('text').value = snap.text; S.vals = Object.assign({}, snap.values);
