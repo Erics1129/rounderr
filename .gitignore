@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+rounderr_cache.json
+.DS_Store
+*.aux
+*.log
+*.out

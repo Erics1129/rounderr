@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rounderr, a reverse mode rounding error machine</title>
+<meta name="description" content="Type a formula and watch where floating point rounding error comes from. Tape, adjoint sweep, blame on every step, stability verdict, random trials, precision sweep and an input landscape, all live in the browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2314213D'/%3E%3Ctext x='16' y='23' font-family='Georgia,serif' font-size='21' font-style='italic' fill='%23E8A013' text-anchor='middle'%3E%CE%BB%3C/text%3E%3C/svg%3E">
+<script>
+  // theme before first paint: the saved choice, else what the system uses
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('rounderr-theme'); } catch (e) {}
+    document.documentElement.dataset.theme = t || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  })();
+</script>
+<link rel="stylesheet" href="rounderr.css">
+</head>
+<body>
+<header>
+  <h1>rounderr<small>reverse mode rounding error machine</small></h1>
+  <ol class="chain" id="chain" aria-label="Pipeline"></ol>
+  <div class="hbtns">
+    <span class="chip" id="engine" title="Where the Python engine is running"><i class="led busy"></i><span>starting</span></span>
+    <a class="chip" href="rounderr_design.pdf" target="_blank" rel="noopener" title="The design guide, the math and the code layout">Design guide</a>
+    <a class="chip" id="repo" href="https://github.com/Erics1129/rounderr" target="_blank" rel="noopener">GitHub</a>
+    <button class="chip" id="theme" aria-label="Switch between light and dark">◐</button>
+  </div>
+  <div class="bootbar" id="bootbar" hidden><i></i></div>
+</header>
+<main>
+  <section class="bench" aria-label="Input">
+    <label class="h" for="text">Formula <small>runs as you type</small></label>
+    <textarea id="text" spellcheck="false" placeholder="-b + sqrt(b^2 - c) with b = 1000, c = 1"></textarea>
+    <div class="chips" id="examples" aria-label="Examples"></div>
+    <div class="readback" id="readback" hidden></div>
+
+    <div id="valwrap" hidden>
+      <span class="h">Numbers <small>edit, or step by ten</small></span>
+      <div class="fields" id="fields"></div>
+      <p class="hint" id="autohint" hidden>Dashed boxes were filled in for you so the formula could run. Change them to your numbers.</p>
+    </div>
+
+    <span class="h">Precision <small id="bitslabel">53 bits</small></span>
+    <div class="seg" id="seg" role="group" aria-label="Precision">
+      <button data-b="53">Double</button><button data-b="24">Single</button><button data-b="11">Half</button>
+    </div>
+    <input type="range" id="bits" min="8" max="53" value="53" aria-label="Precision in bits">
+
+    <label class="h" for="mode">Reader</label>
+    <select id="mode">
+      <option value="rule">Built in rules, works offline</option>
+      <option value="anthropic">Claude, reads plain words too</option>
+      <option value="openai">Local model, OpenAI style endpoint</option>
+      <option value="mock">Demo model, offline stand in</option>
+    </select>
+
+    <button class="go" id="go" hidden>Analyze</button>
+    <div class="msg" id="msg" hidden role="alert"></div>
+    <div class="live" aria-live="polite"><i class="led" id="liveled"></i><span id="livetext">waiting for the engine</span>
+      <label><input type="checkbox" id="auto" checked> auto run</label></div>
+    <p class="hint" id="statusline"></p>
+  </section>
+
+  <section class="out" aria-label="Results">
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div id="cands" class="cands" hidden></div>
+    <div class="pane" id="pane">
+      <div class="card"><div class="empty"><b>Starting the machine</b>The Python engine is loading. The first picture appears in a moment.</div></div>
+    </div>
+  </section>
+</main>
+<footer>rounderr, by Eric Shi. CS 4999 with Dr. David Bindel, Cornell. The math is Linnainmaa's reverse mode error analysis in Bindel's notation. <a href="https://github.com/Erics1129/rounderr">Source on GitHub</a>.</footer>
+<div id="tip" role="tooltip"></div>
+<script src="rounderr_charts.js"></script>
+<script src="rounderr_ui.js"></script>
+</body>
+</html>
